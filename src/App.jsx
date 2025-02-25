@@ -67,7 +67,6 @@ function App() {
   const [userLocation, setUserLocation] = useState(null)
   const [showCamera, setShowCamera] = useState(false)
   const [capturedImage, setCapturedImage] = useState(null)
-  const [searchQuery, setSearchQuery] = useState('')
   const videoRef = useRef(null)
   const streamRef = useRef(null)
   const [activePostMenu, setActivePostMenu] = useState(null)
@@ -300,36 +299,18 @@ function App() {
 
   // ==================== POST & FEED MANAGEMENT ====================
   // Filter posts based on search query and tab
-  const filteredPosts = [...(activeTab === 'profile' ? caughtPokemon : [...caughtPokemon, ...communityPosts])].filter(post => {
-    const searchLower = searchQuery.toLowerCase()
-    const pokemonName = (post.pokemon ? post.pokemon.name : post.name).toLowerCase()
-    const location = (post.location || '').toLowerCase()
-    const types = (post.pokemon ? post.pokemon.types : post.types).map(t => t.type.name.toLowerCase())
-    
-    return pokemonName.includes(searchLower) || 
-           location.includes(searchLower) || 
-           types.some(type => type.includes(searchLower))
-  })
+  const filteredPosts = [...(activeTab === 'profile' ? caughtPokemon : [...caughtPokemon, ...communityPosts])]
 
   const togglePostMenu = (postId) => {
     setActivePostMenu(activePostMenu === postId ? null : postId)
   }
 
   // ==================== UI RENDERING FUNCTIONS ====================
-  // Update renderNavBar to include search functionality
+  // Update renderNavBar to remove search components
   const renderNavBar = () => (
     <nav className="nav-bar">
       <div className="nav-logo">
         <span className="logo-icon">⚡</span> PokéGram
-      </div>
-      <div className="nav-search">
-        <input 
-          type="text" 
-          placeholder="Search Pokemon, types, or locations..." 
-          className="search-input"
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-        />
       </div>
       <div className="nav-buttons">
         <button 
@@ -342,7 +323,7 @@ function App() {
           className={`nav-button ${activeTab === 'explore' ? 'active' : ''}`}
           onClick={() => setActiveTab('explore')}
         >
-          🔍
+          🌎
         </button>
         <button 
           className={`nav-button ${activeTab === 'profile' ? 'active' : ''}`}

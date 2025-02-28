@@ -310,26 +310,20 @@ function App() {
   const renderNavBar = () => (
     <nav className="nav-bar">
       <div className="nav-logo">
-        <span className="logo-icon">⚡</span> PokéGram
+        <span className="logo-icon">✨</span> Pokédex
       </div>
       <div className="nav-buttons">
         <button 
           className={`nav-button ${activeTab === 'home' ? 'active' : ''}`}
           onClick={() => setActiveTab('home')}
         >
-          🏠
-        </button>
-        <button 
-          className={`nav-button ${activeTab === 'explore' ? 'active' : ''}`}
-          onClick={() => setActiveTab('explore')}
-        >
-          🌎
+          {activeTab === 'home' ? '🏰' : '🏠'}
         </button>
         <button 
           className={`nav-button ${activeTab === 'profile' ? 'active' : ''}`}
           onClick={() => setActiveTab('profile')}
         >
-          👤
+          {activeTab === 'profile' ? '👾' : '👤'}
         </button>
       </div>
     </nav>
@@ -340,30 +334,44 @@ function App() {
     <div className="profile-section">
       <div className="profile-header">
         <div className="profile-avatar-container">
-          <img src={userProfile.avatar} alt="Profile" className="profile-avatar" />
-          <button className="change-avatar-btn" onClick={openCamera}>
-            📸 Change Photo
-          </button>
-          <div className="profile-status">Online</div>
+          <div className="avatar-wrapper">
+            <img src={userProfile.avatar} alt="Profile" className="profile-avatar" />
+            <button className="change-avatar-btn" onClick={openCamera}>
+              <span className="camera-icon">📸</span>
+            </button>
+          </div>
+          <div className="profile-status">
+            <span className="status-dot"></span>
+            Online
+          </div>
         </div>
         <div className="profile-info">
           <div className="profile-top">
-            <h2>{userProfile.username}</h2>
-            <button className="edit-profile-btn">Edit Profile</button>
+            <div className="username-container">
+              <h2>{userProfile.username}</h2>
+              <span className="verified-badge">✓</span>
+            </div>
+            <button className="edit-profile-btn">
+              <span className="edit-icon">✏️</span>
+              <span className="btn-text">Edit</span>
+            </button>
           </div>
           <p className="profile-bio">{userProfile.bio}</p>
           <div className="profile-stats">
             <div className="stat">
               <span className="stat-value">{userProfile.stats.caught}</span>
               <span className="stat-label">Caught</span>
+              <span className="stat-icon">⭐</span>
             </div>
             <div className="stat">
               <span className="stat-value">{userProfile.stats.following}</span>
               <span className="stat-label">Following</span>
+              <span className="stat-icon">🤝</span>
             </div>
             <div className="stat">
               <span className="stat-value">{userProfile.stats.followers}</span>
               <span className="stat-label">Followers</span>
+              <span className="stat-icon">💫</span>
             </div>
           </div>
         </div>

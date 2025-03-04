@@ -70,6 +70,7 @@ function App() {
   const videoRef = useRef(null)
   const streamRef = useRef(null)
   const [activePostMenu, setActivePostMenu] = useState(null)
+  const [deferredPrompt, setDeferredPrompt] = useState(null)
 
   // ==================== EFFECTS & DATA PERSISTENCE ====================
   // Get user's location
@@ -193,6 +194,16 @@ function App() {
     localStorage.setItem('userProfile', JSON.stringify(userProfile))
   }, [userProfile])
 
+  // Add this effect to capture the install prompt
+  useEffect(() => {
+    window.addEventListener('beforeinstallprompt', (e) => {
+      // Prevent Chrome 67 and earlier from automatically showing the prompt
+      e.preventDefault();
+      // Stash the event so it can be triggered later
+      setDeferredPrompt(e);
+    });
+  }, []);
+
   // ==================== CAMERA FUNCTIONS ====================
   // Function to start camera for profile picture
   const startCamera = async () => {
@@ -310,20 +321,20 @@ function App() {
   const renderNavBar = () => (
     <nav className="nav-bar">
       <div className="nav-logo">
-        <span className="logo-icon">✨</span> Pokédex
+        <span className="logo-icon">⚡</span> PokéGram
       </div>
       <div className="nav-buttons">
         <button 
           className={`nav-button ${activeTab === 'home' ? 'active' : ''}`}
           onClick={() => setActiveTab('home')}
         >
-          {activeTab === 'home' ? '🏰' : '🏠'}
+          🏠
         </button>
         <button 
           className={`nav-button ${activeTab === 'profile' ? 'active' : ''}`}
           onClick={() => setActiveTab('profile')}
         >
-          {activeTab === 'profile' ? '👾' : '👤'}
+          👤
         </button>
       </div>
     </nav>
@@ -334,44 +345,30 @@ function App() {
     <div className="profile-section">
       <div className="profile-header">
         <div className="profile-avatar-container">
-          <div className="avatar-wrapper">
-            <img src={userProfile.avatar} alt="Profile" className="profile-avatar" />
-            <button className="change-avatar-btn" onClick={openCamera}>
-              <span className="camera-icon">📸</span>
-            </button>
-          </div>
-          <div className="profile-status">
-            <span className="status-dot"></span>
-            Online
-          </div>
+          <img src={userProfile.avatar} alt="Profile" className="profile-avatar" />
+          <button className="change-avatar-btn" onClick={openCamera}>
+            📸 Change Photo
+          </button>
+          <div className="profile-status">Online</div>
         </div>
         <div className="profile-info">
           <div className="profile-top">
-            <div className="username-container">
-              <h2>{userProfile.username}</h2>
-              <span className="verified-badge">✓</span>
-            </div>
-            <button className="edit-profile-btn">
-              <span className="edit-icon">✏️</span>
-              <span className="btn-text">Edit</span>
-            </button>
+            <h2>{userProfile.username}</h2>
+            <button className="edit-profile-btn">Edit Profile</button>
           </div>
           <p className="profile-bio">{userProfile.bio}</p>
           <div className="profile-stats">
             <div className="stat">
               <span className="stat-value">{userProfile.stats.caught}</span>
               <span className="stat-label">Caught</span>
-              <span className="stat-icon">⭐</span>
             </div>
             <div className="stat">
               <span className="stat-value">{userProfile.stats.following}</span>
               <span className="stat-label">Following</span>
-              <span className="stat-icon">🤝</span>
             </div>
             <div className="stat">
               <span className="stat-value">{userProfile.stats.followers}</span>
               <span className="stat-label">Followers</span>
-              <span className="stat-icon">💫</span>
             </div>
           </div>
         </div>
@@ -546,6 +543,55 @@ function App() {
     return date.toLocaleDateString()
   }
 
+  // Add this function to handle direct download
+  const handleDownload = () => {
+    // Get the current state
+    const appData = {
+      userProfile,
+      caughtPokemon,
+      settings: {
+        theme: 'light',
+        language: 'en',
+        notifications: true
+      }
+    };
+
+    // Create a blob with the data
+    const blob = new Blob([JSON.stringify(appData, null, 2)], { type: 'application/json' });
+    const url = window.URL.createObjectURL(blob);
+    
+    // Create temporary link and trigger download
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = 'pokegram-data.json';
+    document.body.appendChild(link);
+    link.click();
+    
+    // Cleanup
+    window.URL.revokeObjectURL(url);
+    document.body.removeChild(link);
+  };
+
+  const handleInstallClick = async () => {
+    if (!deferredPrompt) {
+      alert('To install as an app:\n\n1. Open this website in Chrome or Edge\n2. Click the menu (⋮) in your browser\n3. Click "Install PokéGram" or "Install app"');
+      return;
+    }
+
+    // Show the install prompt
+    deferredPrompt.prompt();
+    
+    // Wait for the user to respond to the prompt
+    const { outcome } = await deferredPrompt.userChoice;
+    
+    if (outcome === 'accepted') {
+      alert('Thanks for installing PokéGram! You can now find it in your Start Menu/Desktop.');
+    }
+    
+    // Clear the prompt so it can't be used again
+    setDeferredPrompt(null);
+  };
+
   // ==================== MAIN RENDER ====================
   return (
     <div className="app-container">
@@ -561,8 +607,15 @@ function App() {
           <>
             <div className="encounter-section">
               <div className="encounter-info">
-                <h2>Catch Wild Pokemon</h2>
-                <p>Click the Pokeball to encounter a random Pokemon!</p>
+                <h2>Catch wild Pokemon</h2>
+                <p>click the Pokeball to encounter a random Pokemon!</p>
+                <button 
+                  className="download-app-button"
+                  onClick={handleInstallClick}
+                >
+                  <span className="download-icon">💻</span>
+                  Install as App
+                </button>
               </div>
               <div 
                 className={`pokeball ${isLoading ? 'shake' : ''}`} 

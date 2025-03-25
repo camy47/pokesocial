@@ -70,43 +70,87 @@ function App() {
   const videoRef = useRef(null)
   const streamRef = useRef(null)
   const [activePostMenu, setActivePostMenu] = useState(null)
-  const [deferredPrompt, setDeferredPrompt] = useState(null)
 
   // ==================== EFFECTS & DATA PERSISTENCE ====================
   // Get user's location
   useEffect(() => {
-    if ("geolocation" in navigator) {
-      navigator.geolocation.getCurrentPosition(async (position) => {
+    const getLocation = async () => {
+      if (!navigator.geolocation) {
+        setUserLocation('Location not supported')
+        return
+      }
+
+      const options = {
+        enableHighAccuracy: true,  // Use GPS if available
+        timeout: 10000,           // Time to wait for location
+        maximumAge: 300000        // Cache location for 5 minutes
+      }
+
+      try {
+        const position = await new Promise((resolve, reject) => {
+          navigator.geolocation.getCurrentPosition(resolve, reject, options)
+        })
+
+        const { latitude, longitude } = position.coords
+
         try {
-          const { latitude, longitude } = position.coords
-          // Using Nominatim (OpenStreetMap) for reverse geocoding - no API key needed
+          // Using Nominatim with better error handling and timeout
+          const controller = new AbortController()
+          const timeoutId = setTimeout(() => controller.abort(), 5000)  // 5 second timeout
+
           const response = await fetch(
             `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}&zoom=18&addressdetails=1`,
             {
               headers: {
-                'User-Agent': 'PokemonApp/1.0' // Required by Nominatim's terms of use
-              }
+                'User-Agent': 'PokemonApp/1.0'
+              },
+              signal: controller.signal
             }
           )
+
+          clearTimeout(timeoutId)
+
+          if (!response.ok) {
+            throw new Error('Geocoding service error')
+          }
+
           const data = await response.json()
-          if (data) {
+          
+          if (data && data.address) {
             // Extract city and state/country for a cleaner location display
-            const city = data.address.city || data.address.town || data.address.village || data.address.suburb
+            const city = data.address.city || data.address.town || data.address.village || 
+                        data.address.suburb || data.address.county || data.address.state
             const state = data.address.state || data.address.country
             const locationString = city ? `${city}, ${state}` : state
             setUserLocation(locationString)
+          } else {
+            throw new Error('No location data')
           }
         } catch (error) {
-          console.error('Error getting location:', error)
-          setUserLocation('Unknown Location')
+          // Fallback to coordinates if geocoding fails
+          setUserLocation(`${latitude.toFixed(2)}°, ${longitude.toFixed(2)}°`)
+          console.warn('Geocoding error:', error)
         }
-      }, (error) => {
-        console.error('Error getting geolocation:', error)
-        setUserLocation('Unknown Location')
-      })
-    } else {
-      setUserLocation('Unknown Location')
+      } catch (error) {
+        // Handle specific geolocation errors
+        switch(error.code) {
+          case error.PERMISSION_DENIED:
+            setUserLocation('Location access denied')
+            break
+          case error.POSITION_UNAVAILABLE:
+            setUserLocation('Location unavailable')
+            break
+          case error.TIMEOUT:
+            setUserLocation('Location request timed out')
+            break
+          default:
+            setUserLocation('Unable to get location')
+        }
+        console.warn('Geolocation error:', error)
+      }
     }
+
+    getLocation()
   }, [])
 
   // Generate random community posts
@@ -194,68 +238,124 @@ function App() {
     localStorage.setItem('userProfile', JSON.stringify(userProfile))
   }, [userProfile])
 
-  // Add this effect to capture the install prompt
-  useEffect(() => {
-    window.addEventListener('beforeinstallprompt', (e) => {
-      // Prevent Chrome 67 and earlier from automatically showing the prompt
-      e.preventDefault();
-      // Stash the event so it can be triggered later
-      setDeferredPrompt(e);
-    });
-  }, []);
-
   // ==================== CAMERA FUNCTIONS ====================
   // Function to start camera for profile picture
   const startCamera = async () => {
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ 
-        video: { facingMode: 'user' },
-        audio: false 
-      })
-      streamRef.current = stream
+      // Try to get the front camera first on mobile devices
+      const devices = await navigator.mediaDevices.enumerateDevices();
+      const videoDevices = devices.filter(device => device.kind === 'videoinput');
+      
+      let constraints = {
+        video: {
+          facingMode: 'user',
+          width: { ideal: 1280 },
+          height: { ideal: 720 }
+        },
+        audio: false
+      };
+
+      // If on mobile and has multiple cameras, try to use the front camera
+      if (videoDevices.length > 1 && /Mobi|Android/i.test(navigator.userAgent)) {
+        const frontCamera = videoDevices.find(device => 
+          device.label.toLowerCase().includes('front') ||
+          device.label.toLowerCase().includes('selfie')
+        );
+        
+        if (frontCamera) {
+          constraints.video.deviceId = { exact: frontCamera.deviceId };
+        }
+      }
+
+      const stream = await navigator.mediaDevices.getUserMedia(constraints);
+      streamRef.current = stream;
+      
       if (videoRef.current) {
-        videoRef.current.srcObject = stream
+        videoRef.current.srcObject = stream;
+        // Wait for video to be ready
+        await new Promise((resolve) => {
+          videoRef.current.onloadedmetadata = () => {
+            videoRef.current.play();
+            resolve();
+          };
+        });
       }
     } catch (error) {
-      console.error('Error accessing camera:', error)
+      console.error('Error accessing camera:', error);
+      alert('Unable to access camera. Please make sure you have granted camera permissions.');
     }
-  }
+  };
 
   // Function to stop camera
   const stopCamera = () => {
     if (streamRef.current) {
-      streamRef.current.getTracks().forEach(track => track.stop())
+      streamRef.current.getTracks().forEach(track => track.stop());
     }
-    setShowCamera(false)
-  }
+    if (videoRef.current) {
+      videoRef.current.srcObject = null;
+    }
+    setShowCamera(false);
+  };
 
   // Function to capture profile photo
   const capturePhoto = () => {
     if (videoRef.current) {
-      const canvas = document.createElement('canvas')
-      const video = videoRef.current
-      canvas.width = video.videoWidth
-      canvas.height = video.videoHeight
-      const ctx = canvas.getContext('2d')
+      const video = videoRef.current;
+      const canvas = document.createElement('canvas');
       
-      // Flip horizontally for selfie mirror effect
-      ctx.translate(canvas.width, 0)
-      ctx.scale(-1, 1)
+      // Set canvas size to match video dimensions
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
       
-      ctx.drawImage(video, 0, 0)
-      const imageData = canvas.toDataURL('image/jpeg', 0.9)
-      setUserProfile(prev => ({
-        ...prev,
-        avatar: imageData
-      }))
-      stopCamera()
+      const ctx = canvas.getContext('2d');
+      
+      // Clear the canvas
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      
+      // Handle mirroring based on device
+      if (/Mobi|Android/i.test(navigator.userAgent)) {
+        // Mobile: Don't mirror the image as front camera is already mirrored
+        ctx.drawImage(video, 0, 0);
+      } else {
+        // Desktop: Mirror the image for selfie view
+        ctx.translate(canvas.width, 0);
+        ctx.scale(-1, 1);
+        ctx.drawImage(video, 0, 0);
+      }
+      
+      try {
+        // Convert to JPEG with good quality
+        const imageData = canvas.toDataURL('image/jpeg', 0.9);
+        
+        // Update profile with new image
+        setUserProfile(prev => ({
+          ...prev,
+          avatar: imageData
+        }));
+        
+        // Store in localStorage immediately
+        const updatedProfile = {
+          ...userProfile,
+          avatar: imageData
+        };
+        localStorage.setItem('userProfile', JSON.stringify(updatedProfile));
+        
+        // Close camera after successful capture
+        stopCamera();
+      } catch (error) {
+        console.error('Error capturing photo:', error);
+        alert('Failed to capture photo. Please try again.');
+      }
     }
-  }
+  };
 
   const openCamera = () => {
-    setShowCamera(true)
-    startCamera()
-  }
+    setShowCamera(true);
+    startCamera().catch(error => {
+      console.error('Failed to start camera:', error);
+      setShowCamera(false);
+    });
+  };
 
   // ==================== POKEMON INTERACTION FUNCTIONS ====================
   const getRandomPokemon = async () => {
@@ -543,55 +643,6 @@ function App() {
     return date.toLocaleDateString()
   }
 
-  // Add this function to handle direct download
-  const handleDownload = () => {
-    // Get the current state
-    const appData = {
-      userProfile,
-      caughtPokemon,
-      settings: {
-        theme: 'light',
-        language: 'en',
-        notifications: true
-      }
-    };
-
-    // Create a blob with the data
-    const blob = new Blob([JSON.stringify(appData, null, 2)], { type: 'application/json' });
-    const url = window.URL.createObjectURL(blob);
-    
-    // Create temporary link and trigger download
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = 'pokegram-data.json';
-    document.body.appendChild(link);
-    link.click();
-    
-    // Cleanup
-    window.URL.revokeObjectURL(url);
-    document.body.removeChild(link);
-  };
-
-  const handleInstallClick = async () => {
-    if (!deferredPrompt) {
-      alert('To install as an app:\n\n1. Open this website in Chrome or Edge\n2. Click the menu (⋮) in your browser\n3. Click "Install PokéGram" or "Install app"');
-      return;
-    }
-
-    // Show the install prompt
-    deferredPrompt.prompt();
-    
-    // Wait for the user to respond to the prompt
-    const { outcome } = await deferredPrompt.userChoice;
-    
-    if (outcome === 'accepted') {
-      alert('Thanks for installing PokéGram! You can now find it in your Start Menu/Desktop.');
-    }
-    
-    // Clear the prompt so it can't be used again
-    setDeferredPrompt(null);
-  };
-
   // ==================== MAIN RENDER ====================
   return (
     <div className="app-container">
@@ -609,13 +660,6 @@ function App() {
               <div className="encounter-info">
                 <h2>Catch wild Pokemon</h2>
                 <p>click the Pokeball to encounter a random Pokemon!</p>
-                <button 
-                  className="download-app-button"
-                  onClick={handleInstallClick}
-                >
-                  <span className="download-icon">💻</span>
-                  Install as App
-                </button>
               </div>
               <div 
                 className={`pokeball ${isLoading ? 'shake' : ''}`} 

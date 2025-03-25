@@ -440,16 +440,19 @@ function App() {
     </nav>
   )
 
-  // Update renderProfile to include camera functionality
+  // Update renderProfile to include the new button style
   const renderProfile = () => (
     <div className="profile-section">
       <div className="profile-header">
         <div className="profile-avatar-container">
           <img src={userProfile.avatar} alt="Profile" className="profile-avatar" />
-          <button className="change-avatar-btn" onClick={openCamera}>
-            📸 Change Photo
+          <button 
+            className="mobile-change-avatar-btn"
+            onClick={openCamera}
+            aria-label="Change Profile Picture"
+          >
+            📸
           </button>
-          <div className="profile-status">Online</div>
         </div>
         <div className="profile-info">
           <div className="profile-top">
@@ -494,6 +497,62 @@ function App() {
           </div>
         </div>
       )}
+
+      <style jsx>{`
+        .profile-avatar-container {
+          position: relative;
+          width: 120px;
+          height: 120px;
+          margin-right: 20px;
+        }
+
+        .profile-avatar {
+          width: 100%;
+          height: 100%;
+          border-radius: 50%;
+          object-fit: cover;
+          border: 3px solid #fff;
+          box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        }
+
+        .mobile-change-avatar-btn {
+          position: absolute;
+          top: 0;
+          right: -10px;
+          width: 40px;
+          height: 40px;
+          border-radius: 50%;
+          background: #6c5ce7;
+          border: 2px solid #fff;
+          color: white;
+          font-size: 20px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          cursor: pointer;
+          box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+          transition: transform 0.2s;
+          padding: 0;
+          z-index: 2;
+        }
+
+        .mobile-change-avatar-btn:active {
+          transform: scale(0.95);
+        }
+
+        @media (max-width: 768px) {
+          .profile-avatar-container {
+            width: 100px;
+            height: 100px;
+          }
+
+          .mobile-change-avatar-btn {
+            width: 36px;
+            height: 36px;
+            font-size: 18px;
+          }
+        }
+      `}</style>
     </div>
   )
 

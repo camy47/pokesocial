@@ -409,8 +409,8 @@ function App() {
   }
 
   // ==================== POST & FEED MANAGEMENT ====================
-  // Filter posts based on search query and tab
-  const filteredPosts = [...(activeTab === 'profile' ? caughtPokemon : [...caughtPokemon, ...communityPosts])]
+  // Filter posts based on tab
+  const filteredPosts = activeTab === 'profile' ? caughtPokemon : [...caughtPokemon, ...communityPosts]
 
   const togglePostMenu = (postId) => {
     setActivePostMenu(activePostMenu === postId ? null : postId)
@@ -564,15 +564,7 @@ function App() {
           <h3>Your Caught Pokemon ({caughtPokemon.length})</h3>
         </div>
       )}
-      {filteredPosts.length === 0 && searchQuery ? (
-        <div className="no-pokemon">
-          <div className="empty-state">
-            <span className="empty-icon">🔍</span>
-            <h3>No matches found</h3>
-            <p>Try searching for a different Pokemon, type, or location</p>
-          </div>
-        </div>
-      ) : filteredPosts.length === 0 && activeTab === 'profile' ? (
+      {filteredPosts.length === 0 && activeTab === 'profile' ? (
         <div className="no-pokemon">
           <div className="empty-state">
             <span className="empty-icon">📱</span>
